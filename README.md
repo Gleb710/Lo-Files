@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # content_core_v001
 
 A new Flutter project.
@@ -15,3 +16,6 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+# ContentCore
+>>>>>>> a7db795c37768caaaff543280f91ae6fdc94010a
