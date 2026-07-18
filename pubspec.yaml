@@ -46,6 +46,23 @@ dev_dependencies:
   drift_dev: ^2.22.0
   build_runner: ^2.4.13
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.3
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/icon_LF_c_1_1422.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#191B22"
+  adaptive_icon_foreground: "assets/icon/icon_LF_c_1_1422.png"
+
+flutter_native_splash:
+  color: "#191B22"
+  image: assets/icon/icon_LF_c_1_1422.png
+  android_12:
+    image: assets/icon/icon_LF_c_1_1422.png
+    color: "#191B22"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
