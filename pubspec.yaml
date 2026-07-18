@@ -61,7 +61,7 @@ flutter_native_splash:
   color: "#191B22"
   image: assets/icon/icon_LF_c_1_1422.png
   android_12:
-    image: assets/icon/icon_LF_c_1_1422.png
+    image: assets/icon/splash_LF_c_1_1422.png
     color: "#191B22"
 
 # For information on the generic Dart part of this file, see the
