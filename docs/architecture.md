@@ -37,7 +37,9 @@ text
 - `core/registries/` — Viewer Registry, File Action Registry, Screen Registry (см. раздел 3.1)
     
 - `core/event_bus/` — событийная шина и типизированные классы событий
-    
+
+- `core/events/` — базовые и общие типизированные доменные события клиента (`AppEvent` и его наследники)
+
 - `core/entitlements/` — интерфейс EntitlementChecker + заглушка MVP
     
 - `core/network/` — HTTP-клиент, формат ответа API

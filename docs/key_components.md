@@ -28,6 +28,7 @@
 - Новый глобальный Riverpod-provider → `lib/core/providers/[name]_provider.dart`.
 - Новый локальный provider модуля → `lib/features/<feature>/providers/[name]_provider.dart`.
 - Если provider начинает использоваться более чем одним модулем, он переносится из `features/<feature>/providers/` в `core/providers/`.
+- Новое общее доменное событие → `lib/core/events/[event_name].dart`, наследуется от `AppEvent`.
 - НЕ писать SQL-запросы напрямую в UI-виджетах.
 
 ---

@@ -75,6 +75,8 @@
 |Столбец БД|snake_case|`created_at`, `sync_status`|`createdAt`|
 |Схема БД (namespace модуля)|snake_case = имя backend-модуля|`auth`, `users`, `billing`|`Auth_Schema`|
 
+- Все доменные события клиента наследуются от базового `AppEvent`, размещённого в `lib/core/events/app_event.dart`.
+
 ## 1.6 Общие принципы
 
 - Имя отражает **назначение**, а не реализацию (`ViewerRegistry`, а не `MapBasedRegistry`).
