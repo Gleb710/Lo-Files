@@ -13,7 +13,7 @@
   и без CASCADE при удалении файла.
 - DAO-классов нет — методы запросов (getAllFiles, addFavorite и т.д.) 
   ещё не написаны, вся логика запросов будет добавляться позже.
-- State management не выбран — эта секция появится, когда решение принято.
+- State management выбран: Riverpod. Архитектурное правило разделения global и feature-scoped providers уже принято, но большинство реальных providers и их связей пока ещё не реализованы.
 - Навигация (роутер) не создана.
 - main.dart — шаблонный код flutter create, не реальный UI приложения.
 
@@ -24,8 +24,10 @@
   затем dart run build_runner build.
 - Новый метод запроса к БД (когда появится DAO) → отдельный файл 
   вида lib/core/database/daos/[название]_dao.dart, НЕ прямо в database.dart.
-- Новая бизнес-логика фичи → пока нет утверждённого места, 
-  уточнить у команды перед созданием файла.
+- Новая бизнес-логика фичи → в соответствующий модуль `lib/features/<feature>/` с разделением на `presentation/`, `domain/`, `data/`, `providers/`.
+- Новый глобальный Riverpod-provider → `lib/core/providers/[name]_provider.dart`.
+- Новый локальный provider модуля → `lib/features/<feature>/providers/[name]_provider.dart`.
+- Если provider начинает использоваться более чем одним модулем, он переносится из `features/<feature>/providers/` в `core/providers/`.
 - НЕ писать SQL-запросы напрямую в UI-виджетах.
 
 ---
@@ -47,11 +49,17 @@ AppDatabase (database.dart) ──uses──> drift_flutter (driftDatabase)
 # 4. Список крупных файлов (файлы с функциями)
 
 - lib/core/database/database.dart — схема БД, DAO (пока отсутствуют)
+- lib/core/providers/database_provider.dart — глобальный provider для AppDatabase
+- lib/core/providers/event_bus_provider.dart — глобальный provider для EventBus
+- lib/core/providers/entitlement_checker_provider.dart — глобальный provider для EntitlementChecker
+- lib/core/events/app_event.dart — базовый sealed class для всех событий приложения
+- lib/core/event_bus/event_bus.dart — контракт шины событий
+- lib/core/event_bus/riverpod_event_bus.dart — in-process реализация EventBus на клиенте
 
 ---
 # 5. Список главных/основных файлов
 
-- lib/main.dart — точка входа (шаблонный, требует переписки)
+- lib/main.dart — точка входа приложения; уже используется для подключения `ProviderScope` и дальнейшей сборки DI уровня приложения
 
 ---
 # 6. Описание файлов
