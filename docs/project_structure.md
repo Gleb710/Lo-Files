@@ -1,25 +1,56 @@
 # Структура проекта Lo-Files
 
 ### Текущий статус
-Проект находится на самом раннем этапе: большая часть структуры — 
-стандартный шаблон Flutter, сгенерированный командой `flutter create`. 
-Кастомная реализация пока минимальна: только Drift-база данных и иконки.
-Архитектура фич (feature-first, MVC, layers и т.д.) ЕЩЁ НЕ УТВЕРЖДЕНА.
+Архитектура клиента утверждена как feature-first с явным разделением на `core/` и `features/`. Для feature-модулей принят единый каркас `presentation/`, `domain/`, `data/`, `providers/`; для общих зависимостей используется `core/providers/`, а `core/di/` выполняет роль composition root.
 
 ### lib/ — весь код приложения
+
 lib/
 ├── core/
-│   └── database/
-│       ├── database.dart      # Drift-схема, таблицы, DAO
-│       └── database.g.dart    # АВТОГЕНЕРИРУЕТСЯ, не редактировать руками
-└── main.dart                   # точка входа, пока шаблонный код
+│   ├── database/
+│   │   ├── database.dart
+│   │   ├── database.g.dart
+│   │   └── daos/
+│   ├── di/
+│   │   └── app_providers_scope.dart
+│   ├── providers/
+│   │   ├── database_provider.dart
+│   │   ├── entitlement_checker_provider.dart
+│   │   └── event_bus_provider.dart
+│   ├── events/
+│   │   ├── app_event.dart
+│   │   └── ...
+│   ├── event_bus/
+│   │   ├── event_bus.dart
+│   │   └── riverpod_event_bus.dart
+│   ├── entitlements/
+│   │   ├── entitlement_checker.dart
+│   │   └── stub_entitlement_checker.dart
+│   ├── registries/
+│   ├── network/
+│   └── result/
+├── features/
+│   ├── account/
+│   │   ├── presentation/
+│   │   ├── domain/
+│   │   ├── data/
+│   │   └── providers/
+│   ├── storage/
+│   ├── file_list/
+│   ├── search/
+│   ├── viewer/
+│   ├── recent_favorites/
+│   ├── settings/
+│   └── stub_features/
+└── main.dart
 
-ВАЖНО для будущих задач: 
-- Структуры features/, screens/, widgets/ пока НЕТ. 
-- Если получена задача "создать экран" — сначала уточнить у команды 
-  утверждённую структуру папок, не создавать произвольно.
-- database.g.dart никогда не редактируется вручную — 
-  перегенерируется командой: dart run build_runner build
+ВАЖНО для будущих задач:
+- Структура `features/` уже утверждена и не должна создаваться произвольно вне принятого каркаса.
+- Глобальные Riverpod-провайдеры размещаются в `lib/core/providers/`.
+- Локальные провайдеры размещаются в `lib/features/<feature>/providers/`.
+- Если provider начинает использоваться более чем одним модулем, он переносится в `lib/core/providers/`.
+- `core/di/` используется для сборки и подключения провайдеров уровня приложения, а не для хранения feature-scoped providers.
+- `database.g.dart` никогда не редактируется вручную — перегенерируется командой: `dart run build_runner build`
 
 ### android/, ios/, linux/, macos/, windows/
 Нативные платформенные обёртки, создаются автоматически Flutter.
@@ -49,6 +80,7 @@ overview.md, setup.md, этот файл).
 - audioplayers — воспроизведение аудио
 - video_player — воспроизведение видео
 - permission_handler — доступ к файловой системе
+- flutter_riverpod — DI и state management через Riverpod
 
 ### Что НЕ трогать
 - Папки build/, .dart_tool/, .gradle/, .idea/ — временные, автогенерируемые

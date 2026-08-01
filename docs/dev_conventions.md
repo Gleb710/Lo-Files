@@ -19,6 +19,14 @@
 |Файл реализации интерфейса|snake_case, приставка = конкретная реализация|`stub_entitlement_checker.dart`|`entitlement_checker_2.dart`|
 |Файл теста|имя тестируемого файла + `_test`|`search_repository_test.dart`|`test_search_repository.dart`|
 
+### Дополнительное правило: размещение Riverpod providers
+
+- Глобальные providers, используемые более чем в одном feature-модуле, размещаются в `lib/core/providers/`.
+- Локальные providers, используемые только внутри одного feature-модуля, размещаются в `lib/features/<feature>/providers/`, где `<feature>` — имя папки модуля (например, `storage`, `account`, `search`, `viewer`).
+- Если provider из feature-модуля начинает использоваться вторым модулем, он должен быть перенесён из `lib/features/<feature>/providers/` в `lib/core/providers/`.
+- Прямой импорт provider'а из feature-модуля A в feature-модуль B запрещён; общий provider в таком случае выносится в `core/providers`.
+- Папка `lib/core/di/` используется как composition root: для сборки, подключения и override провайдеров уровня приложения, но не как место хранения feature-scoped providers.
+
 ## 1.2 Файлы и папки (backend, TypeScript/NestJS)
 
 |Объект|Правило|Правильно|Неправильно|
@@ -66,6 +74,8 @@
 |Таблица БД|snake_case, множественное число|`recent_entries`, `favorites`, `files`|`RecentEntry`|
 |Столбец БД|snake_case|`created_at`, `sync_status`|`createdAt`|
 |Схема БД (namespace модуля)|snake_case = имя backend-модуля|`auth`, `users`, `billing`|`Auth_Schema`|
+
+- Все доменные события клиента наследуются от базового `AppEvent`, размещённого в `lib/core/events/app_event.dart`.
 
 ## 1.6 Общие принципы
 
