@@ -5,7 +5,7 @@
 > Основа: технический проект «ContentCore» (Lo-Files), PRD, решения, зафиксированные в архитектурном обсуждении проекта.  
 > Статус: MVP-архитектура, спроектированная с явными точками расширения под финальную версию продукта.
 
----
+***
 
 ## 1. Логическая архитектура: слои и связи
 
@@ -15,18 +15,37 @@
 |---|---|---|
 |**Presentation**|Экраны, виджеты, Riverpod-провайдеры UI-состояния, навигация|Domain|
 |**Domain**|Доменные модели, use case'ы, интерфейсы репозиториев, интерфейсы реестров, интерфейс EntitlementChecker, интерфейс EventBus|Ничего (чистый Dart, без Flutter/Drift/HTTP)|
-|**Data**|Реализации репозиториев, Drift (SQLite), REST-клиент backend'а|Domain (реализует его интерфейсы)|
+|**Data**|Реализации репозиториев, Drift (SQLite), REST-клиент backend'а, локальные кэши|Domain (реализует его интерфейсы)|
 |**Platform / Infrastructure**|DI-контейнер, доступ к файловой системе, разрешения, secure storage (Keychain/Keystore)|Обслуживает Data и Presentation|
 
 Направление зависимостей: **Presentation → Domain ← Data**. Platform обслуживает оба крайних слоя, но не содержит бизнес-правил.
 
 Backend построен как **Modular Monolith** на NestJS: единый развёрнутый процесс, но с изоляцией модулей на уровне схем PostgreSQL и публичных сервисных интерфейсов — модули не обращаются к чужим таблицам БД напрямую, только через сервис или событие.
 
-text
-
 `Presentation  →  Domain  ←  Data                    ↑              Platform/Infra`
 
----
+### 1.1 Актуальные доменные сущности
+
+В MVP уже используются следующие доменные модели:
+
+- `File` — центральная сущность виртуального хранилища; storage-эквивалент в Drift: `LocalFiles`.
+- `FileType` — enum поддерживаемых типов файла MVP (`txt`, `docx`, `mp3`, `mp4`, `jpeg`, `png`).
+- `Folder` — узел иерархии виртуального хранилища; storage-эквивалент: `Folders`.
+- `User` — локальная модель профиля / гостевого режима; storage-эквивалент: `UserProfileCache`.
+- `RecentEntry` — запись о недавно открытом файле; storage-эквивалент: `RecentEntries`.
+- `FavoriteEntry` — запись об избранном; storage-эквивалент: `Favorites`.
+- `SyncStatus` — enum-заготовка под будущую синхронизацию, уже заложенная в `RecentEntry`/`FavoriteEntry`, но не используемая в MVP-бизнес-логике.
+
+`Files` как отдельная Drift-таблица удалена и не используется. Все локальные таблицы данных лежат в `lib/data/local/tables/`, а `lib/core/database/database.dart` выполняет только сборку схемы.
+
+### 1.2 Важные правила слоя Domain
+
+- Domain-модели не зависят от Drift, Flutter, HTTP и UI.
+- Domain-модель не должна одновременно играть роль storage-модели или DTO.
+- Будущие расширяемые поля, такие как `extraMetadata`, `syncStatus`, `isGuest`, `parentId`, должны документироваться явно, чтобы команда не строила MVP-логику на ещё не реализованной функциональности.
+- Доменные модели и storage-модели должны быть явно разведены: `File` ≠ `LocalFiles`, `User` ≠ `UserProfileCache`, `Folder` ≠ `Folders`.
+
+***
 
 ## 2. Модули и пакеты
 
@@ -34,31 +53,56 @@ text
 
 Ядро — общие механизмы, от которых зависят модули, но которые сами не зависят от конкретных модулей.
 
-- `core/registries/` — Viewer Registry, File Action Registry, Screen Registry (см. раздел 3.1)
-    
-- `core/event_bus/` — событийная шина и типизированные классы событий
-    
-- `core/entitlements/` — интерфейс EntitlementChecker + заглушка MVP
-    
-- `core/network/` — HTTP-клиент, формат ответа API
-    
-- `core/di/` — сборка Riverpod-провайдеров уровня приложения
-    
+- `core/registries/` — Viewer Registry, File Action Registry, Screen Registry.
+- `core/event_bus/` — событийная шина и типизированные классы событий.
+- `core/entitlements/` — интерфейс EntitlementChecker + заглушка MVP.
+- `core/network/` — HTTP-клиент, формат ответа API.
+- `core/di/` — сборка Riverpod-провайдеров уровня приложения.
+- `data/local/` — локальная БД, кэш профиля и репозитории для SQLite/Drift.
 
 ## 2.2 Модули клиента (MVP)
 
 |Модуль|Назначение|Расширение в будущем|
 |---|---|---|
-|**Account**|Регистрация, вход, восстановление пароля, профиль|Поля подписки/лицензии|
+|**Account**|Гостевой режим, профиль, базовая локальная модель пользователя|Полноценная авторизация, восстановление пароля, поля подписки/лицензии|
 |**Storage**|Виртуальное хранилище, папки, файлы|Облачные источники как новая реализация репозитория|
 |**File List**|Отображение и навигация по структуре хранилища|Статусы синхронизации/лицензии как доп. иконки|
 |**Search**|Поиск по имени и расширению файла|Фильтры по метаданным|
-|**Viewer**|Просмотр TXT, JPEG, PNG, MP3, MP4 (+ в финале PDF, XLSX, PPTX, DOCX)|Новые форматы и редактирование через Viewer Registry|
+|**Viewer**|Просмотр TXT, JPEG, PNG, MP3, MP4|Новые форматы и редактирование через Viewer Registry|
 |**Recent & Favorites**|Недавние файлы, избранное|Синхронизация списка через backend|
 |**Settings**|Профиль, конфиденциальность, уведомления, разрешения|Разделы «Расширения» и «Подписка»|
 |**Stub Features**|Заглушки будущих функций (обязателен в MVP по PRD)|Основа реального Marketplace-модуля|
 
 Каждый модуль внутри себя повторяет структуру `presentation/`, `domain/`, `data/` — то есть модуль это «вертикальный срез» через все слои.
+
+### 2.2.1 Storage module
+
+Storage module опирается на виртуальное дерево папок и файлов.
+
+- `File` — доменная сущность файла.
+- `LocalFiles` — storage-модель Drift для файлов и элементов виртуального хранилища.
+- `Folder` — доменная сущность папки.
+- `Folders` — storage-модель Drift для папок.
+- `Folders.parentId == null` означает корень **виртуального** пространства Lo-Files, а не корень системной файловой системы.
+- В Data-слое таблицы хранятся отдельно в `lib/data/local/tables/`, `database.dart` только регистрирует их в `@DriftDatabase(...)`.
+
+### 2.2.2 Recent & Favorites module
+
+- `RecentEntry` хранит файл и момент открытия.
+- `RecentEntries` — storage-таблица недавних файлов.
+- `FavoriteEntry` хранит файл и момент добавления в избранное.
+- `Favorites` — storage-таблица избранного.
+- `syncStatus` заранее присутствует в storage-моделях как резерв под будущий Sync-модуль.
+- В MVP это поле не должно использоваться для принятия бизнес-решений.
+- `Favorites.fileId` уникален на уровне схемы, чтобы один файл не попадал в избранное дважды.
+
+### 2.2.3 Account module
+
+- `User` в MVP — локальная доменная модель.
+- `UserProfileCache` — локальная storage-модель для кэша профиля и гостевого режима.
+- `User.isGuest` используется redirect-логикой `go_router` для входа без полноценной сессии.
+- `UserProfileCache` в MVP ведёт себя как singleton-кэш: одна активная запись на устройство.
+- Backend-поля вроде `email`, `hashedPassword`, `accessToken` в MVP-модель не входят.
 
 ## 2.3 Модули backend'а
 
@@ -75,7 +119,7 @@ text
 
 Правило изоляции: у каждого серверного модуля — собственная схема в единой базе PostgreSQL (`auth`, `users`, `billing`, `audit`), общих таблиц между модулями нет.
 
----
+***
 
 ## 3. Принятые паттерны
 
@@ -83,12 +127,9 @@ text
 
 Таблица соответствий «формат/действие → обработчик», которую можно пополнять без изменения кода, который эту таблицу использует.
 
-- **Viewer Registry** — сопоставляет расширение файла с виджетом просмотра. В MVP: 5 записей (txt, jpg/jpeg, png, mp3, mp4).
-    
-- **File Action Registry** — список действий в контекстном меню файла (переименовать, переместить, удалить, избранное). Плагины добавляют новые действия сюда.
-    
+- **Viewer Registry** — сопоставляет расширение файла с виджетом просмотра. В MVP: 5 записей (`txt`, `jpeg`, `png`, `mp3`, `mp4`).
+- **File Action Registry** — список действий в контекстном меню файла (`rename`, `move`, `delete`, `favorite`).
 - **Screen Registry** — регистрация новых полноэкранных маршрутов (экран магазина, редактора) в общей навигации.
-    
 
 ## 3.2 Event-Driven / Event Bus
 
@@ -96,7 +137,13 @@ text
 
 ## 3.3 Repository Pattern
 
-Domain-слой объявляет интерфейс репозитория (например, `StorageRepository`), Data-слой предоставляет конкретную реализацию (Drift, REST-клиент). Позволяет подменить источник данных (например, добавить облачное хранилище) без изменения кода, использующего репозиторий.
+Domain-слой объявляет интерфейс репозитория (например, `StorageRepository`), Data-слой предоставляет конкретную реализацию (Drift, REST-клиент). Позволяет подменить источник данных без изменения кода, использующего репозиторий.
+
+### 3.3.1 Текущий приоритет
+
+Для `User` в MVP допускается локальный кэш (`UserProfileCache`) как часть data/infrastructure-слоя.  
+Для `File`, `Folder`, `RecentEntry`, `FavoriteEntry` источник данных — локальная Drift-база.  
+Все локальные таблицы лежат в `lib/data/local/tables/`, а `lib/core/database/database.dart` только регистрирует их в `@DriftDatabase(...)`.
 
 ## 3.4 Result / Envelope Pattern (два разных контракта — не путать)
 
@@ -104,15 +151,11 @@ Domain-слой объявляет интерфейс репозитория (н
 
 **А. `Result<T>` — для внутренних методов и use case'ов** (не для сети):
 
-text
-
-`Result<T> {   success: bool  data: T?  errorCode: String?  errorMessage: String? }`
+`Result<T> { success: bool, data: T?, errorCode: String?, errorMessage: String? }`
 
 **Б. API-конверт — для сетевого обмена клиент↔backend**:
 
-text
-
-`{   operation: string       // имя операции  requestId: string       // уникальный UUID запроса  clientId: string  timestamp: string       // ISO 8601 UTC  version: string  payload: object         // полезная нагрузка (DTO)  status: "ok" | "error"  serverTime: string      // ISO 8601 UTC  errorCode?: string      // только при status = error  errorMessage?: string   // только при status = error  data?: object           // только при status = ok }`
+`{ operation: string, requestId: string, clientId: string, timestamp: string, version: string, payload: object, status: "ok" | "error", serverTime: string, errorCode?: string, errorMessage?: string, data?: object }`
 
 Смешивать эти два контракта нельзя: `Result<T>` — это возврат из локального метода/use case, API-конверт — это то, что реально идёт по HTTPS между клиентом и backend'ом.
 
@@ -128,21 +171,33 @@ text
 
 Технический проект (раздел 5.1 ТП) явно требует не смешивать четыре разные формы одной и той же сущности:
 
-- **Domain-модель** — чистая бизнес-сущность (`File`, `Folder`, `License`), используется в Domain-слое.
-    
-- **Storage-модель** — оптимизирована под БД (индексы, версии, флаги состояний), используется только в Data-слое.
-    
+- **Domain-модель** — чистая бизнес-сущность (`File`, `Folder`, `User`, `RecentEntry`, `FavoriteEntry`), используется в Domain-слое.
+- **Storage-модель** — оптимизирована под БД, используется только в Data-слое.
 - **DTO** — минимальный набор полей для сериализации в JSON, используется только на границе сетевого слоя.
-    
-- **View-модель** — подготовленные к выводу значения (форматированный размер, локализованная дата), используется только в Presentation.
-    
+- **View-модель** — подготовленные к выводу значения, используется только в Presentation.
 
 Преобразование между формами — только через отдельные функции/классы-мапперы, никогда не «одна структура на всё».
 
 ## 3.8 Naming Pattern для use case'ов (по ТП, раздел 5.1)
 
 - Команды (изменяют состояние): глагол + существительное — `OpenObject`, `MoveObject`, `SyncObject`, `ActivatePlugin`, `ValidateLicense`, `BuildExportPackage`.
-    
 - Запросы (читают данные): префикс `Get`/`List`/`Search` — `GetObjectById`, `SearchObjects`, `ListFolderItems`, `GetUserProfile`.
-    
 - Все use case'ы асинхронны и возвращают `Future<T>` (Dart) или `Promise<T>` (TypeScript).
+
+## 3.9 Freezed и immutable-модели
+
+- Все single-class domain-модели в Dart оформляются через `freezed`.
+- Для текущего стека используется синтаксис `@freezed abstract class ... with _$...`.
+- Сгенерированные файлы `*.freezed.dart` не редактируются вручную.
+- После изменения freezed-моделей обязательно запускать `build_runner`.
+
+***
+
+## 4. Практические примечания для текущего MVP
+
+- `File.extraMetadata` — резерв под будущие плагины и дополнительные свойства.
+- `Folder.parentId` — основа иерархии виртуального пространства.
+- `User.isGuest` — ключевой флаг гостевого режима.
+- `UserProfileCache` — локальная storage-модель гостевого профиля и единственной активной записи аккаунта в MVP.
+- `RecentEntry.syncStatus` и `FavoriteEntry.syncStatus` — поле под будущую синхронизацию, не использовать в MVP-логике.
+- Доменные модели должны оставаться максимально простыми и не зависеть от UI, Drift или сетевых контрактов.
