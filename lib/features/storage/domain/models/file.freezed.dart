@@ -14,7 +14,14 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$File {
 
- int get id; String get name; String get path; FileType get type; int get size; DateTime get createdAt; Map<String, dynamic>? get extraMetadata;
+ int get id; String get name; String get path; FileType get type; int get size; DateTime get createdAt;/// Дополнительные метаданные объекта.
+///
+/// Задел под будущую систему плагинов (docs/architecture.md, раздел 9.1).
+/// В MVP не используется активно — поле физически существует, чтобы
+/// избежать изменения сигнатуры [File] после того, как на неё уже
+/// будет ссылаться код остальных модулей (Storage, Viewer, Search,
+/// Recent & Favorites).
+ Map<String, dynamic>? get extraMetadata;
 /// Create a copy of File
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -221,7 +228,21 @@ class _File implements File {
 @override final  FileType type;
 @override final  int size;
 @override final  DateTime createdAt;
+/// Дополнительные метаданные объекта.
+///
+/// Задел под будущую систему плагинов (docs/architecture.md, раздел 9.1).
+/// В MVP не используется активно — поле физически существует, чтобы
+/// избежать изменения сигнатуры [File] после того, как на неё уже
+/// будет ссылаться код остальных модулей (Storage, Viewer, Search,
+/// Recent & Favorites).
  final  Map<String, dynamic>? _extraMetadata;
+/// Дополнительные метаданные объекта.
+///
+/// Задел под будущую систему плагинов (docs/architecture.md, раздел 9.1).
+/// В MVP не используется активно — поле физически существует, чтобы
+/// избежать изменения сигнатуры [File] после того, как на неё уже
+/// будет ссылаться код остальных модулей (Storage, Viewer, Search,
+/// Recent & Favorites).
 @override Map<String, dynamic>? get extraMetadata {
   final value = _extraMetadata;
   if (value == null) return null;
