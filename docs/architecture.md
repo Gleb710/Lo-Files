@@ -59,6 +59,20 @@ Backend построен как **Modular Monolith** на NestJS: единый �
 - `core/network/` — HTTP-клиент, формат ответа API.
 - `core/di/` — сборка Riverpod-провайдеров уровня приложения.
 - `data/local/` — локальная БД, кэш профиля и репозитории для SQLite/Drift.
+- `core/registries/` — Viewer Registry, File Action Registry, Screen Registry (см. раздел 3.1)
+    
+- `core/event_bus/` — событийная шина и типизированные классы событий
+
+- `core/events/` — базовые и общие типизированные доменные события клиента (`AppEvent` и его наследники)
+
+- `core/entitlements/` — интерфейс EntitlementChecker + заглушка MVP
+    
+- `core/network/` — HTTP-клиент, формат ответа API
+    
+- `core/providers/` — глобальные Riverpod-провайдеры, используемые более чем одним модулем (например, EventBus, EntitlementChecker, AppDatabase)
+    
+- `core/di/` — composition root: сборка, подключение и override провайдеров уровня приложения
+    
 
 ## 2.2 Модули клиента (MVP)
 
@@ -73,7 +87,7 @@ Backend построен как **Modular Monolith** на NestJS: единый �
 |**Settings**|Профиль, конфиденциальность, уведомления, разрешения|Разделы «Расширения» и «Подписка»|
 |**Stub Features**|Заглушки будущих функций (обязателен в MVP по PRD)|Основа реального Marketplace-модуля|
 
-Каждый модуль внутри себя повторяет структуру `presentation/`, `domain/`, `data/` — то есть модуль это «вертикальный срез» через все слои.
+Каждый модуль внутри себя повторяет структуру `presentation/`, `domain/`, `data/`, `providers/` — то есть модуль это «вертикальный срез» через все слои. Папка `providers/` внутри feature-модуля содержит только локальные провайдеры, которые используются исключительно этим модулем.
 
 ### 2.2.1 Storage module
 
@@ -161,7 +175,7 @@ Domain-слой объявляет интерфейс репозитория (н
 
 ## 3.5 Dependency Injection через Riverpod
 
-Все зависимости (репозитории, реестры, event bus, entitlement checker) регистрируются как Riverpod-провайдеры в `core/di/`. Замена реализации (например, заглушки EntitlementChecker на реальную) — это замена провайдера, а не изменение вызывающего кода.
+Все зависимости уровня приложения (репозитории, реестры, event bus, entitlement checker, AppDatabase) оформляются как Riverpod-провайдеры. Глобальные провайдеры, используемые более чем одним модулем, размещаются в `core/providers/`; локальные провайдеры модуля — в `features/<feature>/providers/`. Папка `core/di/` используется как composition root для сборки, подключения и override провайдеров уровня приложения. Замена реализации (например, заглушки EntitlementChecker на реальную) — это замена провайдера, а не изменение вызывающего кода.
 
 ## 3.6 Strategy Pattern через EntitlementChecker
 

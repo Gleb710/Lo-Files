@@ -56,6 +56,56 @@ lib/
 ```
 
 ### Важные правила для `lib/`
+Архитектура клиента утверждена как feature-first с явным разделением на `core/` и `features/`. Для feature-модулей принят единый каркас `presentation/`, `domain/`, `data/`, `providers/`; для общих зависимостей используется `core/providers/`, а `core/di/` выполняет роль composition root.
+
+### lib/ — весь код приложения
+
+lib/
+├── core/
+│   ├── database/
+│   │   ├── database.dart
+│   │   ├── database.g.dart
+│   │   └── daos/
+│   ├── di/
+│   │   └── app_providers_scope.dart
+│   ├── providers/
+│   │   ├── database_provider.dart
+│   │   ├── entitlement_checker_provider.dart
+│   │   └── event_bus_provider.dart
+│   ├── events/
+│   │   ├── app_event.dart
+│   │   └── ...
+│   ├── event_bus/
+│   │   ├── event_bus.dart
+│   │   └── riverpod_event_bus.dart
+│   ├── entitlements/
+│   │   ├── entitlement_checker.dart
+│   │   └── stub_entitlement_checker.dart
+│   ├── registries/
+│   ├── network/
+│   └── result/
+├── features/
+│   ├── account/
+│   │   ├── presentation/
+│   │   ├── domain/
+│   │   ├── data/
+│   │   └── providers/
+│   ├── storage/
+│   ├── file_list/
+│   ├── search/
+│   ├── viewer/
+│   ├── recent_favorites/
+│   ├── settings/
+│   └── stub_features/
+└── main.dart
+
+ВАЖНО для будущих задач:
+- Структура `features/` уже утверждена и не должна создаваться произвольно вне принятого каркаса.
+- Глобальные Riverpod-провайдеры размещаются в `lib/core/providers/`.
+- Локальные провайдеры размещаются в `lib/features/<feature>/providers/`.
+- Если provider начинает использоваться более чем одним модулем, он переносится в `lib/core/providers/`.
+- `core/di/` используется для сборки и подключения провайдеров уровня приложения, а не для хранения feature-scoped providers.
+- `database.g.dart` никогда не редактируется вручную — перегенерируется командой: `dart run build_runner build`
 
 - `features/` — это основная feature-структура приложения.
 - `core/` — общие механизмы, не привязанные к одному модулю.
@@ -85,6 +135,12 @@ windows/
 - permissions;
 - min SDK / target SDK;
 - platform-specific настройки, если они нужны для работы файлового менеджера.
+### Подключённые пакеты (из pubspec.yaml)
+- drift + sqlite3_flutter_libs — локальная база данных
+- audioplayers — воспроизведение аудио
+- video_player — воспроизведение видео
+- permission_handler — доступ к файловой системе
+- flutter_riverpod — DI и state management через Riverpod
 
 ### Что здесь не делать
 - не писать бизнес-логику;

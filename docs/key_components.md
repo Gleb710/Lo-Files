@@ -5,6 +5,16 @@
 ***
 
 ## 1. Известные пробелы (Known Gaps)
+- Нет Repository-слоя — в будущем UI не должен обращаться к AppDatabase 
+  напрямую, а только через промежуточный Repository.
+- Foreign key связи не настроены явно: Favorites.fileId и 
+  RecentEntries.fileId — обычные IntColumn, без references() 
+  и без CASCADE при удалении файла.
+- DAO-классов нет — методы запросов (getAllFiles, addFavorite и т.д.) 
+  ещё не написаны, вся логика запросов будет добавляться позже.
+- State management выбран: Riverpod. Архитектурное правило разделения global и feature-scoped providers уже принято, но большинство реальных providers и их связей пока ещё не реализованы.
+- Навигация (роутер) не создана.
+- main.dart — шаблонный код flutter create, не реальный UI приложения.
 
 - Repository-слой для большинства модулей ещё не реализован — UI не должен обращаться к `AppDatabase` напрямую, а должен работать через промежуточный Repository.
 - DAO-классов для `Favorites`, `RecentEntries`, `Folders`, `UserProfileCache` и других будущих таблиц ещё нет — вся логика запросов будет добавляться позже.
@@ -13,7 +23,16 @@
 - Навигация на уровне готового приложения ещё не полностью развернута — `go_router` используется как выбранный путь, но реальная экранная структура ещё будет расти.
 - `main.dart` пока содержит шаблонный код Flutter create и не является реальным UI приложения.
 
-***
+- Новая таблица БД → lib/core/database/database.dart, 
+  затем dart run build_runner build.
+- Новый метод запроса к БД (когда появится DAO) → отдельный файл 
+  вида lib/core/database/daos/[название]_dao.dart, НЕ прямо в database.dart.
+- Новая бизнес-логика фичи → в соответствующий модуль `lib/features/<feature>/` с разделением на `presentation/`, `domain/`, `data/`, `providers/`.
+- Новый глобальный Riverpod-provider → `lib/core/providers/[name]_provider.dart`.
+- Новый локальный provider модуля → `lib/features/<feature>/providers/[name]_provider.dart`.
+- Если provider начинает использоваться более чем одним модулем, он переносится из `features/<feature>/providers/` в `core/providers/`.
+- Новое общее доменное событие → `lib/core/events/[event_name].dart`, наследуется от `AppEvent`.
+- НЕ писать SQL-запросы напрямую в UI-виджетах.
 
 ## 2. Куда добавлять новый функционал
 
@@ -47,7 +66,13 @@ AppDatabase (database.dart) ── uses ──> drift_flutter (driftDatabase)
 
 Пока Repository-слой не реализован, UI не должен ходить напрямую в `AppDatabase`.
 
-***
+- lib/core/database/database.dart — схема БД, DAO (пока отсутствуют)
+- lib/core/providers/database_provider.dart — глобальный provider для AppDatabase
+- lib/core/providers/event_bus_provider.dart — глобальный provider для EventBus
+- lib/core/providers/entitlement_checker_provider.dart — глобальный provider для EntitlementChecker
+- lib/core/events/app_event.dart — базовый sealed class для всех событий приложения
+- lib/core/event_bus/event_bus.dart — контракт шины событий
+- lib/core/event_bus/riverpod_event_bus.dart — in-process реализация EventBus на клиенте
 
 ## 4. Список крупных файлов
 
@@ -60,6 +85,7 @@ AppDatabase (database.dart) ── uses ──> drift_flutter (driftDatabase)
 - `lib/features/recent_favorites/domain/models/recent_entry.dart` — доменная модель recent-записи.
 - `lib/features/recent_favorites/domain/models/favorite_entry.dart` — доменная модель избранного.
 - `lib/features/recent_favorites/domain/models/sync_status.dart` — enum статуса синхронизации для будущего Sync.
+- lib/main.dart — точка входа приложения; уже используется для подключения `ProviderScope` и дальнейшей сборки DI уровня приложения
 
 ***
 
