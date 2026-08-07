@@ -586,6 +586,9 @@ class $FavoritesTable extends Favorites
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_files (id)',
+    ),
   );
   static const VerificationMeta _addedAtMeta = const VerificationMeta(
     'addedAt',
@@ -598,8 +601,19 @@ class $FavoritesTable extends Favorites
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, fileId, addedAt];
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, fileId, addedAt, syncStatus];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -631,11 +645,21 @@ class $FavoritesTable extends Favorites
     } else if (isInserting) {
       context.missing(_addedAtMeta);
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {fileId},
+  ];
   @override
   Favorite map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -652,6 +676,10 @@ class $FavoritesTable extends Favorites
         DriftSqlType.dateTime,
         data['${effectivePrefix}added_at'],
       )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
     );
   }
 
@@ -665,10 +693,12 @@ class Favorite extends DataClass implements Insertable<Favorite> {
   final int id;
   final int fileId;
   final DateTime addedAt;
+  final String? syncStatus;
   const Favorite({
     required this.id,
     required this.fileId,
     required this.addedAt,
+    this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -676,6 +706,9 @@ class Favorite extends DataClass implements Insertable<Favorite> {
     map['id'] = Variable<int>(id);
     map['file_id'] = Variable<int>(fileId);
     map['added_at'] = Variable<DateTime>(addedAt);
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
     return map;
   }
 
@@ -684,6 +717,9 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       id: Value(id),
       fileId: Value(fileId),
       addedAt: Value(addedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
     );
   }
 
@@ -696,6 +732,7 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       id: serializer.fromJson<int>(json['id']),
       fileId: serializer.fromJson<int>(json['fileId']),
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
     );
   }
   @override
@@ -705,19 +742,29 @@ class Favorite extends DataClass implements Insertable<Favorite> {
       'id': serializer.toJson<int>(id),
       'fileId': serializer.toJson<int>(fileId),
       'addedAt': serializer.toJson<DateTime>(addedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
     };
   }
 
-  Favorite copyWith({int? id, int? fileId, DateTime? addedAt}) => Favorite(
+  Favorite copyWith({
+    int? id,
+    int? fileId,
+    DateTime? addedAt,
+    Value<String?> syncStatus = const Value.absent(),
+  }) => Favorite(
     id: id ?? this.id,
     fileId: fileId ?? this.fileId,
     addedAt: addedAt ?? this.addedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
   );
   Favorite copyWithCompanion(FavoritesCompanion data) {
     return Favorite(
       id: data.id.present ? data.id.value : this.id,
       fileId: data.fileId.present ? data.fileId.value : this.fileId,
       addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -726,46 +773,53 @@ class Favorite extends DataClass implements Insertable<Favorite> {
     return (StringBuffer('Favorite(')
           ..write('id: $id, ')
           ..write('fileId: $fileId, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, fileId, addedAt);
+  int get hashCode => Object.hash(id, fileId, addedAt, syncStatus);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Favorite &&
           other.id == this.id &&
           other.fileId == this.fileId &&
-          other.addedAt == this.addedAt);
+          other.addedAt == this.addedAt &&
+          other.syncStatus == this.syncStatus);
 }
 
 class FavoritesCompanion extends UpdateCompanion<Favorite> {
   final Value<int> id;
   final Value<int> fileId;
   final Value<DateTime> addedAt;
+  final Value<String?> syncStatus;
   const FavoritesCompanion({
     this.id = const Value.absent(),
     this.fileId = const Value.absent(),
     this.addedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   FavoritesCompanion.insert({
     this.id = const Value.absent(),
     required int fileId,
     required DateTime addedAt,
+    this.syncStatus = const Value.absent(),
   }) : fileId = Value(fileId),
        addedAt = Value(addedAt);
   static Insertable<Favorite> custom({
     Expression<int>? id,
     Expression<int>? fileId,
     Expression<DateTime>? addedAt,
+    Expression<String>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (fileId != null) 'file_id': fileId,
       if (addedAt != null) 'added_at': addedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -773,11 +827,13 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     Value<int>? id,
     Value<int>? fileId,
     Value<DateTime>? addedAt,
+    Value<String?>? syncStatus,
   }) {
     return FavoritesCompanion(
       id: id ?? this.id,
       fileId: fileId ?? this.fileId,
       addedAt: addedAt ?? this.addedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -793,6 +849,9 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     if (addedAt.present) {
       map['added_at'] = Variable<DateTime>(addedAt.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
     return map;
   }
 
@@ -801,7 +860,8 @@ class FavoritesCompanion extends UpdateCompanion<Favorite> {
     return (StringBuffer('FavoritesCompanion(')
           ..write('id: $id, ')
           ..write('fileId: $fileId, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -834,6 +894,9 @@ class $RecentEntriesTable extends RecentEntries
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_files (id)',
+    ),
   );
   static const VerificationMeta _openedAtMeta = const VerificationMeta(
     'openedAt',
@@ -846,8 +909,19 @@ class $RecentEntriesTable extends RecentEntries
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, fileId, openedAt];
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, fileId, openedAt, syncStatus];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -879,6 +953,12 @@ class $RecentEntriesTable extends RecentEntries
     } else if (isInserting) {
       context.missing(_openedAtMeta);
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -900,6 +980,10 @@ class $RecentEntriesTable extends RecentEntries
         DriftSqlType.dateTime,
         data['${effectivePrefix}opened_at'],
       )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
     );
   }
 
@@ -913,10 +997,12 @@ class RecentEntry extends DataClass implements Insertable<RecentEntry> {
   final int id;
   final int fileId;
   final DateTime openedAt;
+  final String? syncStatus;
   const RecentEntry({
     required this.id,
     required this.fileId,
     required this.openedAt,
+    this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -924,6 +1010,9 @@ class RecentEntry extends DataClass implements Insertable<RecentEntry> {
     map['id'] = Variable<int>(id);
     map['file_id'] = Variable<int>(fileId);
     map['opened_at'] = Variable<DateTime>(openedAt);
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
     return map;
   }
 
@@ -932,6 +1021,9 @@ class RecentEntry extends DataClass implements Insertable<RecentEntry> {
       id: Value(id),
       fileId: Value(fileId),
       openedAt: Value(openedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
     );
   }
 
@@ -944,6 +1036,7 @@ class RecentEntry extends DataClass implements Insertable<RecentEntry> {
       id: serializer.fromJson<int>(json['id']),
       fileId: serializer.fromJson<int>(json['fileId']),
       openedAt: serializer.fromJson<DateTime>(json['openedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
     );
   }
   @override
@@ -953,20 +1046,29 @@ class RecentEntry extends DataClass implements Insertable<RecentEntry> {
       'id': serializer.toJson<int>(id),
       'fileId': serializer.toJson<int>(fileId),
       'openedAt': serializer.toJson<DateTime>(openedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
     };
   }
 
-  RecentEntry copyWith({int? id, int? fileId, DateTime? openedAt}) =>
-      RecentEntry(
-        id: id ?? this.id,
-        fileId: fileId ?? this.fileId,
-        openedAt: openedAt ?? this.openedAt,
-      );
+  RecentEntry copyWith({
+    int? id,
+    int? fileId,
+    DateTime? openedAt,
+    Value<String?> syncStatus = const Value.absent(),
+  }) => RecentEntry(
+    id: id ?? this.id,
+    fileId: fileId ?? this.fileId,
+    openedAt: openedAt ?? this.openedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
+  );
   RecentEntry copyWithCompanion(RecentEntriesCompanion data) {
     return RecentEntry(
       id: data.id.present ? data.id.value : this.id,
       fileId: data.fileId.present ? data.fileId.value : this.fileId,
       openedAt: data.openedAt.present ? data.openedAt.value : this.openedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -975,46 +1077,53 @@ class RecentEntry extends DataClass implements Insertable<RecentEntry> {
     return (StringBuffer('RecentEntry(')
           ..write('id: $id, ')
           ..write('fileId: $fileId, ')
-          ..write('openedAt: $openedAt')
+          ..write('openedAt: $openedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, fileId, openedAt);
+  int get hashCode => Object.hash(id, fileId, openedAt, syncStatus);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is RecentEntry &&
           other.id == this.id &&
           other.fileId == this.fileId &&
-          other.openedAt == this.openedAt);
+          other.openedAt == this.openedAt &&
+          other.syncStatus == this.syncStatus);
 }
 
 class RecentEntriesCompanion extends UpdateCompanion<RecentEntry> {
   final Value<int> id;
   final Value<int> fileId;
   final Value<DateTime> openedAt;
+  final Value<String?> syncStatus;
   const RecentEntriesCompanion({
     this.id = const Value.absent(),
     this.fileId = const Value.absent(),
     this.openedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
   });
   RecentEntriesCompanion.insert({
     this.id = const Value.absent(),
     required int fileId,
     required DateTime openedAt,
+    this.syncStatus = const Value.absent(),
   }) : fileId = Value(fileId),
        openedAt = Value(openedAt);
   static Insertable<RecentEntry> custom({
     Expression<int>? id,
     Expression<int>? fileId,
     Expression<DateTime>? openedAt,
+    Expression<String>? syncStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (fileId != null) 'file_id': fileId,
       if (openedAt != null) 'opened_at': openedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
     });
   }
 
@@ -1022,11 +1131,13 @@ class RecentEntriesCompanion extends UpdateCompanion<RecentEntry> {
     Value<int>? id,
     Value<int>? fileId,
     Value<DateTime>? openedAt,
+    Value<String?>? syncStatus,
   }) {
     return RecentEntriesCompanion(
       id: id ?? this.id,
       fileId: fileId ?? this.fileId,
       openedAt: openedAt ?? this.openedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -1042,6 +1153,9 @@ class RecentEntriesCompanion extends UpdateCompanion<RecentEntry> {
     if (openedAt.present) {
       map['opened_at'] = Variable<DateTime>(openedAt.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
     return map;
   }
 
@@ -1050,7 +1164,634 @@ class RecentEntriesCompanion extends UpdateCompanion<RecentEntry> {
     return (StringBuffer('RecentEntriesCompanion(')
           ..write('id: $id, ')
           ..write('fileId: $fileId, ')
-          ..write('openedAt: $openedAt')
+          ..write('openedAt: $openedAt, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FoldersTable extends Folders with TableInfo<$FoldersTable, Folder> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FoldersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parentIdMeta = const VerificationMeta(
+    'parentId',
+  );
+  @override
+  late final GeneratedColumn<int> parentId = GeneratedColumn<int>(
+    'parent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES folders (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, parentId, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'folders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Folder> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('parent_id')) {
+      context.handle(
+        _parentIdMeta,
+        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Folder map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Folder(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      parentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}parent_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FoldersTable createAlias(String alias) {
+    return $FoldersTable(attachedDatabase, alias);
+  }
+}
+
+class Folder extends DataClass implements Insertable<Folder> {
+  final int id;
+  final String name;
+  final int? parentId;
+  final DateTime createdAt;
+  const Folder({
+    required this.id,
+    required this.name,
+    this.parentId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<int>(parentId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FoldersCompanion toCompanion(bool nullToAbsent) {
+    return FoldersCompanion(
+      id: Value(id),
+      name: Value(name),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Folder.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Folder(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      parentId: serializer.fromJson<int?>(json['parentId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'parentId': serializer.toJson<int?>(parentId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Folder copyWith({
+    int? id,
+    String? name,
+    Value<int?> parentId = const Value.absent(),
+    DateTime? createdAt,
+  }) => Folder(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    parentId: parentId.present ? parentId.value : this.parentId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Folder copyWithCompanion(FoldersCompanion data) {
+    return Folder(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Folder(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, parentId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Folder &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.parentId == this.parentId &&
+          other.createdAt == this.createdAt);
+}
+
+class FoldersCompanion extends UpdateCompanion<Folder> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<int?> parentId;
+  final Value<DateTime> createdAt;
+  const FoldersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  FoldersCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.parentId = const Value.absent(),
+    required DateTime createdAt,
+  }) : name = Value(name),
+       createdAt = Value(createdAt);
+  static Insertable<Folder> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<int>? parentId,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (parentId != null) 'parent_id': parentId,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  FoldersCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<int?>? parentId,
+    Value<DateTime>? createdAt,
+  }) {
+    return FoldersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      parentId: parentId ?? this.parentId,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (parentId.present) {
+      map['parent_id'] = Variable<int>(parentId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FoldersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UserProfileCacheTable extends UserProfileCache
+    with TableInfo<$UserProfileCacheTable, UserProfileCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserProfileCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isGuestMeta = const VerificationMeta(
+    'isGuest',
+  );
+  @override
+  late final GeneratedColumn<bool> isGuest = GeneratedColumn<bool>(
+    'is_guest',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_guest" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _entitlementsCacheMeta = const VerificationMeta(
+    'entitlementsCache',
+  );
+  @override
+  late final GeneratedColumn<String> entitlementsCache =
+      GeneratedColumn<String>(
+        'entitlements_cache',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    displayName,
+    isGuest,
+    entitlementsCache,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_profile_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserProfileCacheData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('is_guest')) {
+      context.handle(
+        _isGuestMeta,
+        isGuest.isAcceptableOrUnknown(data['is_guest']!, _isGuestMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_isGuestMeta);
+    }
+    if (data.containsKey('entitlements_cache')) {
+      context.handle(
+        _entitlementsCacheMeta,
+        entitlementsCache.isAcceptableOrUnknown(
+          data['entitlements_cache']!,
+          _entitlementsCacheMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  UserProfileCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserProfileCacheData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      isGuest: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_guest'],
+      )!,
+      entitlementsCache: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entitlements_cache'],
+      ),
+    );
+  }
+
+  @override
+  $UserProfileCacheTable createAlias(String alias) {
+    return $UserProfileCacheTable(attachedDatabase, alias);
+  }
+}
+
+class UserProfileCacheData extends DataClass
+    implements Insertable<UserProfileCacheData> {
+  final int id;
+  final String displayName;
+  final bool isGuest;
+  final String? entitlementsCache;
+  const UserProfileCacheData({
+    required this.id,
+    required this.displayName,
+    required this.isGuest,
+    this.entitlementsCache,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['display_name'] = Variable<String>(displayName);
+    map['is_guest'] = Variable<bool>(isGuest);
+    if (!nullToAbsent || entitlementsCache != null) {
+      map['entitlements_cache'] = Variable<String>(entitlementsCache);
+    }
+    return map;
+  }
+
+  UserProfileCacheCompanion toCompanion(bool nullToAbsent) {
+    return UserProfileCacheCompanion(
+      id: Value(id),
+      displayName: Value(displayName),
+      isGuest: Value(isGuest),
+      entitlementsCache: entitlementsCache == null && nullToAbsent
+          ? const Value.absent()
+          : Value(entitlementsCache),
+    );
+  }
+
+  factory UserProfileCacheData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserProfileCacheData(
+      id: serializer.fromJson<int>(json['id']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      isGuest: serializer.fromJson<bool>(json['isGuest']),
+      entitlementsCache: serializer.fromJson<String?>(
+        json['entitlementsCache'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'displayName': serializer.toJson<String>(displayName),
+      'isGuest': serializer.toJson<bool>(isGuest),
+      'entitlementsCache': serializer.toJson<String?>(entitlementsCache),
+    };
+  }
+
+  UserProfileCacheData copyWith({
+    int? id,
+    String? displayName,
+    bool? isGuest,
+    Value<String?> entitlementsCache = const Value.absent(),
+  }) => UserProfileCacheData(
+    id: id ?? this.id,
+    displayName: displayName ?? this.displayName,
+    isGuest: isGuest ?? this.isGuest,
+    entitlementsCache: entitlementsCache.present
+        ? entitlementsCache.value
+        : this.entitlementsCache,
+  );
+  UserProfileCacheData copyWithCompanion(UserProfileCacheCompanion data) {
+    return UserProfileCacheData(
+      id: data.id.present ? data.id.value : this.id,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      isGuest: data.isGuest.present ? data.isGuest.value : this.isGuest,
+      entitlementsCache: data.entitlementsCache.present
+          ? data.entitlementsCache.value
+          : this.entitlementsCache,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserProfileCacheData(')
+          ..write('id: $id, ')
+          ..write('displayName: $displayName, ')
+          ..write('isGuest: $isGuest, ')
+          ..write('entitlementsCache: $entitlementsCache')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, displayName, isGuest, entitlementsCache);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserProfileCacheData &&
+          other.id == this.id &&
+          other.displayName == this.displayName &&
+          other.isGuest == this.isGuest &&
+          other.entitlementsCache == this.entitlementsCache);
+}
+
+class UserProfileCacheCompanion extends UpdateCompanion<UserProfileCacheData> {
+  final Value<int> id;
+  final Value<String> displayName;
+  final Value<bool> isGuest;
+  final Value<String?> entitlementsCache;
+  const UserProfileCacheCompanion({
+    this.id = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.isGuest = const Value.absent(),
+    this.entitlementsCache = const Value.absent(),
+  });
+  UserProfileCacheCompanion.insert({
+    this.id = const Value.absent(),
+    required String displayName,
+    required bool isGuest,
+    this.entitlementsCache = const Value.absent(),
+  }) : displayName = Value(displayName),
+       isGuest = Value(isGuest);
+  static Insertable<UserProfileCacheData> custom({
+    Expression<int>? id,
+    Expression<String>? displayName,
+    Expression<bool>? isGuest,
+    Expression<String>? entitlementsCache,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (displayName != null) 'display_name': displayName,
+      if (isGuest != null) 'is_guest': isGuest,
+      if (entitlementsCache != null) 'entitlements_cache': entitlementsCache,
+    });
+  }
+
+  UserProfileCacheCompanion copyWith({
+    Value<int>? id,
+    Value<String>? displayName,
+    Value<bool>? isGuest,
+    Value<String?>? entitlementsCache,
+  }) {
+    return UserProfileCacheCompanion(
+      id: id ?? this.id,
+      displayName: displayName ?? this.displayName,
+      isGuest: isGuest ?? this.isGuest,
+      entitlementsCache: entitlementsCache ?? this.entitlementsCache,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (isGuest.present) {
+      map['is_guest'] = Variable<bool>(isGuest.value);
+    }
+    if (entitlementsCache.present) {
+      map['entitlements_cache'] = Variable<String>(entitlementsCache.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserProfileCacheCompanion(')
+          ..write('id: $id, ')
+          ..write('displayName: $displayName, ')
+          ..write('isGuest: $isGuest, ')
+          ..write('entitlementsCache: $entitlementsCache')
           ..write(')'))
         .toString();
   }
@@ -1062,6 +1803,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocalFilesTable localFiles = $LocalFilesTable(this);
   late final $FavoritesTable favorites = $FavoritesTable(this);
   late final $RecentEntriesTable recentEntries = $RecentEntriesTable(this);
+  late final $FoldersTable folders = $FoldersTable(this);
+  late final $UserProfileCacheTable userProfileCache = $UserProfileCacheTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1070,7 +1815,19 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localFiles,
     favorites,
     recentEntries,
+    folders,
+    userProfileCache,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'folders',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('folders', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$LocalFilesTableCreateCompanionBuilder =
@@ -1097,6 +1854,47 @@ typedef $$LocalFilesTableUpdateCompanionBuilder =
       Value<bool> isFolder,
       Value<int?> parentId,
     });
+
+final class $$LocalFilesTableReferences
+    extends BaseReferences<_$AppDatabase, $LocalFilesTable, LocalFile> {
+  $$LocalFilesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$FavoritesTable, List<Favorite>>
+  _favoritesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.favorites,
+    aliasName: $_aliasNameGenerator(db.localFiles.id, db.favorites.fileId),
+  );
+
+  $$FavoritesTableProcessedTableManager get favoritesRefs {
+    final manager = $$FavoritesTableTableManager(
+      $_db,
+      $_db.favorites,
+    ).filter((f) => f.fileId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_favoritesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$RecentEntriesTable, List<RecentEntry>>
+  _recentEntriesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.recentEntries,
+    aliasName: $_aliasNameGenerator(db.localFiles.id, db.recentEntries.fileId),
+  );
+
+  $$RecentEntriesTableProcessedTableManager get recentEntriesRefs {
+    final manager = $$RecentEntriesTableTableManager(
+      $_db,
+      $_db.recentEntries,
+    ).filter((f) => f.fileId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_recentEntriesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$LocalFilesTableFilterComposer
     extends Composer<_$AppDatabase, $LocalFilesTable> {
@@ -1151,6 +1949,56 @@ class $$LocalFilesTableFilterComposer
     column: $table.parentId,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> favoritesRefs(
+    Expression<bool> Function($$FavoritesTableFilterComposer f) f,
+  ) {
+    final $$FavoritesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.favorites,
+      getReferencedColumn: (t) => t.fileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FavoritesTableFilterComposer(
+            $db: $db,
+            $table: $db.favorites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> recentEntriesRefs(
+    Expression<bool> Function($$RecentEntriesTableFilterComposer f) f,
+  ) {
+    final $$RecentEntriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recentEntries,
+      getReferencedColumn: (t) => t.fileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecentEntriesTableFilterComposer(
+            $db: $db,
+            $table: $db.recentEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$LocalFilesTableOrderingComposer
@@ -1247,6 +2095,56 @@ class $$LocalFilesTableAnnotationComposer
 
   GeneratedColumn<int> get parentId =>
       $composableBuilder(column: $table.parentId, builder: (column) => column);
+
+  Expression<T> favoritesRefs<T extends Object>(
+    Expression<T> Function($$FavoritesTableAnnotationComposer a) f,
+  ) {
+    final $$FavoritesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.favorites,
+      getReferencedColumn: (t) => t.fileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FavoritesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.favorites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> recentEntriesRefs<T extends Object>(
+    Expression<T> Function($$RecentEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$RecentEntriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recentEntries,
+      getReferencedColumn: (t) => t.fileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecentEntriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.recentEntries,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$LocalFilesTableTableManager
@@ -1260,12 +2158,9 @@ class $$LocalFilesTableTableManager
           $$LocalFilesTableAnnotationComposer,
           $$LocalFilesTableCreateCompanionBuilder,
           $$LocalFilesTableUpdateCompanionBuilder,
-          (
-            LocalFile,
-            BaseReferences<_$AppDatabase, $LocalFilesTable, LocalFile>,
-          ),
+          (LocalFile, $$LocalFilesTableReferences),
           LocalFile,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool favoritesRefs, bool recentEntriesRefs})
         > {
   $$LocalFilesTableTableManager(_$AppDatabase db, $LocalFilesTable table)
     : super(
@@ -1323,9 +2218,70 @@ class $$LocalFilesTableTableManager
                 parentId: parentId,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$LocalFilesTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback:
+              ({favoritesRefs = false, recentEntriesRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (favoritesRefs) db.favorites,
+                    if (recentEntriesRefs) db.recentEntries,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (favoritesRefs)
+                        await $_getPrefetchedData<
+                          LocalFile,
+                          $LocalFilesTable,
+                          Favorite
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalFilesTableReferences
+                              ._favoritesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalFilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).favoritesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.fileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (recentEntriesRefs)
+                        await $_getPrefetchedData<
+                          LocalFile,
+                          $LocalFilesTable,
+                          RecentEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalFilesTableReferences
+                              ._recentEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalFilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recentEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.fileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
         ),
       );
 }
@@ -1340,22 +2296,46 @@ typedef $$LocalFilesTableProcessedTableManager =
       $$LocalFilesTableAnnotationComposer,
       $$LocalFilesTableCreateCompanionBuilder,
       $$LocalFilesTableUpdateCompanionBuilder,
-      (LocalFile, BaseReferences<_$AppDatabase, $LocalFilesTable, LocalFile>),
+      (LocalFile, $$LocalFilesTableReferences),
       LocalFile,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool favoritesRefs, bool recentEntriesRefs})
     >;
 typedef $$FavoritesTableCreateCompanionBuilder =
     FavoritesCompanion Function({
       Value<int> id,
       required int fileId,
       required DateTime addedAt,
+      Value<String?> syncStatus,
     });
 typedef $$FavoritesTableUpdateCompanionBuilder =
     FavoritesCompanion Function({
       Value<int> id,
       Value<int> fileId,
       Value<DateTime> addedAt,
+      Value<String?> syncStatus,
     });
+
+final class $$FavoritesTableReferences
+    extends BaseReferences<_$AppDatabase, $FavoritesTable, Favorite> {
+  $$FavoritesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $LocalFilesTable _fileIdTable(_$AppDatabase db) => db.localFiles
+      .createAlias($_aliasNameGenerator(db.favorites.fileId, db.localFiles.id));
+
+  $$LocalFilesTableProcessedTableManager get fileId {
+    final $_column = $_itemColumn<int>('file_id')!;
+
+    final manager = $$LocalFilesTableTableManager(
+      $_db,
+      $_db.localFiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_fileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$FavoritesTableFilterComposer
     extends Composer<_$AppDatabase, $FavoritesTable> {
@@ -1371,15 +2351,38 @@ class $$FavoritesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get fileId => $composableBuilder(
-    column: $table.fileId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<DateTime> get addedAt => $composableBuilder(
     column: $table.addedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalFilesTableFilterComposer get fileId {
+    final $$LocalFilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fileId,
+      referencedTable: $db.localFiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalFilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localFiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$FavoritesTableOrderingComposer
@@ -1396,15 +2399,38 @@ class $$FavoritesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get fileId => $composableBuilder(
-    column: $table.fileId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<DateTime> get addedAt => $composableBuilder(
     column: $table.addedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalFilesTableOrderingComposer get fileId {
+    final $$LocalFilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fileId,
+      referencedTable: $db.localFiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalFilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localFiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$FavoritesTableAnnotationComposer
@@ -1419,11 +2445,36 @@ class $$FavoritesTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<int> get fileId =>
-      $composableBuilder(column: $table.fileId, builder: (column) => column);
-
   GeneratedColumn<DateTime> get addedAt =>
       $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  $$LocalFilesTableAnnotationComposer get fileId {
+    final $$LocalFilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fileId,
+      referencedTable: $db.localFiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalFilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localFiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$FavoritesTableTableManager
@@ -1437,9 +2488,9 @@ class $$FavoritesTableTableManager
           $$FavoritesTableAnnotationComposer,
           $$FavoritesTableCreateCompanionBuilder,
           $$FavoritesTableUpdateCompanionBuilder,
-          (Favorite, BaseReferences<_$AppDatabase, $FavoritesTable, Favorite>),
+          (Favorite, $$FavoritesTableReferences),
           Favorite,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool fileId})
         > {
   $$FavoritesTableTableManager(_$AppDatabase db, $FavoritesTable table)
     : super(
@@ -1457,22 +2508,74 @@ class $$FavoritesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> fileId = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
-              }) =>
-                  FavoritesCompanion(id: id, fileId: fileId, addedAt: addedAt),
+                Value<String?> syncStatus = const Value.absent(),
+              }) => FavoritesCompanion(
+                id: id,
+                fileId: fileId,
+                addedAt: addedAt,
+                syncStatus: syncStatus,
+              ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required int fileId,
                 required DateTime addedAt,
+                Value<String?> syncStatus = const Value.absent(),
               }) => FavoritesCompanion.insert(
                 id: id,
                 fileId: fileId,
                 addedAt: addedAt,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$FavoritesTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({fileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (fileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.fileId,
+                                referencedTable: $$FavoritesTableReferences
+                                    ._fileIdTable(db),
+                                referencedColumn: $$FavoritesTableReferences
+                                    ._fileIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -1487,22 +2590,52 @@ typedef $$FavoritesTableProcessedTableManager =
       $$FavoritesTableAnnotationComposer,
       $$FavoritesTableCreateCompanionBuilder,
       $$FavoritesTableUpdateCompanionBuilder,
-      (Favorite, BaseReferences<_$AppDatabase, $FavoritesTable, Favorite>),
+      (Favorite, $$FavoritesTableReferences),
       Favorite,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool fileId})
     >;
 typedef $$RecentEntriesTableCreateCompanionBuilder =
     RecentEntriesCompanion Function({
       Value<int> id,
       required int fileId,
       required DateTime openedAt,
+      Value<String?> syncStatus,
     });
 typedef $$RecentEntriesTableUpdateCompanionBuilder =
     RecentEntriesCompanion Function({
       Value<int> id,
       Value<int> fileId,
       Value<DateTime> openedAt,
+      Value<String?> syncStatus,
     });
+
+final class $$RecentEntriesTableReferences
+    extends BaseReferences<_$AppDatabase, $RecentEntriesTable, RecentEntry> {
+  $$RecentEntriesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalFilesTable _fileIdTable(_$AppDatabase db) =>
+      db.localFiles.createAlias(
+        $_aliasNameGenerator(db.recentEntries.fileId, db.localFiles.id),
+      );
+
+  $$LocalFilesTableProcessedTableManager get fileId {
+    final $_column = $_itemColumn<int>('file_id')!;
+
+    final manager = $$LocalFilesTableTableManager(
+      $_db,
+      $_db.localFiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_fileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$RecentEntriesTableFilterComposer
     extends Composer<_$AppDatabase, $RecentEntriesTable> {
@@ -1518,15 +2651,38 @@ class $$RecentEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get fileId => $composableBuilder(
-    column: $table.fileId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<DateTime> get openedAt => $composableBuilder(
     column: $table.openedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalFilesTableFilterComposer get fileId {
+    final $$LocalFilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fileId,
+      referencedTable: $db.localFiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalFilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localFiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$RecentEntriesTableOrderingComposer
@@ -1543,15 +2699,38 @@ class $$RecentEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get fileId => $composableBuilder(
-    column: $table.fileId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<DateTime> get openedAt => $composableBuilder(
     column: $table.openedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalFilesTableOrderingComposer get fileId {
+    final $$LocalFilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fileId,
+      referencedTable: $db.localFiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalFilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localFiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$RecentEntriesTableAnnotationComposer
@@ -1566,11 +2745,36 @@ class $$RecentEntriesTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<int> get fileId =>
-      $composableBuilder(column: $table.fileId, builder: (column) => column);
-
   GeneratedColumn<DateTime> get openedAt =>
       $composableBuilder(column: $table.openedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  $$LocalFilesTableAnnotationComposer get fileId {
+    final $$LocalFilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.fileId,
+      referencedTable: $db.localFiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalFilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localFiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$RecentEntriesTableTableManager
@@ -1584,12 +2788,9 @@ class $$RecentEntriesTableTableManager
           $$RecentEntriesTableAnnotationComposer,
           $$RecentEntriesTableCreateCompanionBuilder,
           $$RecentEntriesTableUpdateCompanionBuilder,
-          (
-            RecentEntry,
-            BaseReferences<_$AppDatabase, $RecentEntriesTable, RecentEntry>,
-          ),
+          (RecentEntry, $$RecentEntriesTableReferences),
           RecentEntry,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool fileId})
         > {
   $$RecentEntriesTableTableManager(_$AppDatabase db, $RecentEntriesTable table)
     : super(
@@ -1607,25 +2808,74 @@ class $$RecentEntriesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int> fileId = const Value.absent(),
                 Value<DateTime> openedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
               }) => RecentEntriesCompanion(
                 id: id,
                 fileId: fileId,
                 openedAt: openedAt,
+                syncStatus: syncStatus,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required int fileId,
                 required DateTime openedAt,
+                Value<String?> syncStatus = const Value.absent(),
               }) => RecentEntriesCompanion.insert(
                 id: id,
                 fileId: fileId,
                 openedAt: openedAt,
+                syncStatus: syncStatus,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$RecentEntriesTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({fileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (fileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.fileId,
+                                referencedTable: $$RecentEntriesTableReferences
+                                    ._fileIdTable(db),
+                                referencedColumn: $$RecentEntriesTableReferences
+                                    ._fileIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -1640,11 +2890,489 @@ typedef $$RecentEntriesTableProcessedTableManager =
       $$RecentEntriesTableAnnotationComposer,
       $$RecentEntriesTableCreateCompanionBuilder,
       $$RecentEntriesTableUpdateCompanionBuilder,
-      (
-        RecentEntry,
-        BaseReferences<_$AppDatabase, $RecentEntriesTable, RecentEntry>,
-      ),
+      (RecentEntry, $$RecentEntriesTableReferences),
       RecentEntry,
+      PrefetchHooks Function({bool fileId})
+    >;
+typedef $$FoldersTableCreateCompanionBuilder =
+    FoldersCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<int?> parentId,
+      required DateTime createdAt,
+    });
+typedef $$FoldersTableUpdateCompanionBuilder =
+    FoldersCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<int?> parentId,
+      Value<DateTime> createdAt,
+    });
+
+final class $$FoldersTableReferences
+    extends BaseReferences<_$AppDatabase, $FoldersTable, Folder> {
+  $$FoldersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $FoldersTable _parentIdTable(_$AppDatabase db) => db.folders
+      .createAlias($_aliasNameGenerator(db.folders.parentId, db.folders.id));
+
+  $$FoldersTableProcessedTableManager? get parentId {
+    final $_column = $_itemColumn<int>('parent_id');
+    if ($_column == null) return null;
+    final manager = $$FoldersTableTableManager(
+      $_db,
+      $_db.folders,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_parentIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$FoldersTableFilterComposer
+    extends Composer<_$AppDatabase, $FoldersTable> {
+  $$FoldersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$FoldersTableFilterComposer get parentId {
+    final $$FoldersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentId,
+      referencedTable: $db.folders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FoldersTableFilterComposer(
+            $db: $db,
+            $table: $db.folders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FoldersTableOrderingComposer
+    extends Composer<_$AppDatabase, $FoldersTable> {
+  $$FoldersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$FoldersTableOrderingComposer get parentId {
+    final $$FoldersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentId,
+      referencedTable: $db.folders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FoldersTableOrderingComposer(
+            $db: $db,
+            $table: $db.folders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FoldersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FoldersTable> {
+  $$FoldersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$FoldersTableAnnotationComposer get parentId {
+    final $$FoldersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.parentId,
+      referencedTable: $db.folders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FoldersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.folders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FoldersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FoldersTable,
+          Folder,
+          $$FoldersTableFilterComposer,
+          $$FoldersTableOrderingComposer,
+          $$FoldersTableAnnotationComposer,
+          $$FoldersTableCreateCompanionBuilder,
+          $$FoldersTableUpdateCompanionBuilder,
+          (Folder, $$FoldersTableReferences),
+          Folder,
+          PrefetchHooks Function({bool parentId})
+        > {
+  $$FoldersTableTableManager(_$AppDatabase db, $FoldersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FoldersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FoldersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FoldersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int?> parentId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => FoldersCompanion(
+                id: id,
+                name: name,
+                parentId: parentId,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<int?> parentId = const Value.absent(),
+                required DateTime createdAt,
+              }) => FoldersCompanion.insert(
+                id: id,
+                name: name,
+                parentId: parentId,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$FoldersTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({parentId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (parentId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.parentId,
+                                referencedTable: $$FoldersTableReferences
+                                    ._parentIdTable(db),
+                                referencedColumn: $$FoldersTableReferences
+                                    ._parentIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$FoldersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FoldersTable,
+      Folder,
+      $$FoldersTableFilterComposer,
+      $$FoldersTableOrderingComposer,
+      $$FoldersTableAnnotationComposer,
+      $$FoldersTableCreateCompanionBuilder,
+      $$FoldersTableUpdateCompanionBuilder,
+      (Folder, $$FoldersTableReferences),
+      Folder,
+      PrefetchHooks Function({bool parentId})
+    >;
+typedef $$UserProfileCacheTableCreateCompanionBuilder =
+    UserProfileCacheCompanion Function({
+      Value<int> id,
+      required String displayName,
+      required bool isGuest,
+      Value<String?> entitlementsCache,
+    });
+typedef $$UserProfileCacheTableUpdateCompanionBuilder =
+    UserProfileCacheCompanion Function({
+      Value<int> id,
+      Value<String> displayName,
+      Value<bool> isGuest,
+      Value<String?> entitlementsCache,
+    });
+
+class $$UserProfileCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $UserProfileCacheTable> {
+  $$UserProfileCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isGuest => $composableBuilder(
+    column: $table.isGuest,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entitlementsCache => $composableBuilder(
+    column: $table.entitlementsCache,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UserProfileCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $UserProfileCacheTable> {
+  $$UserProfileCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isGuest => $composableBuilder(
+    column: $table.isGuest,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entitlementsCache => $composableBuilder(
+    column: $table.entitlementsCache,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UserProfileCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UserProfileCacheTable> {
+  $$UserProfileCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isGuest =>
+      $composableBuilder(column: $table.isGuest, builder: (column) => column);
+
+  GeneratedColumn<String> get entitlementsCache => $composableBuilder(
+    column: $table.entitlementsCache,
+    builder: (column) => column,
+  );
+}
+
+class $$UserProfileCacheTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UserProfileCacheTable,
+          UserProfileCacheData,
+          $$UserProfileCacheTableFilterComposer,
+          $$UserProfileCacheTableOrderingComposer,
+          $$UserProfileCacheTableAnnotationComposer,
+          $$UserProfileCacheTableCreateCompanionBuilder,
+          $$UserProfileCacheTableUpdateCompanionBuilder,
+          (
+            UserProfileCacheData,
+            BaseReferences<
+              _$AppDatabase,
+              $UserProfileCacheTable,
+              UserProfileCacheData
+            >,
+          ),
+          UserProfileCacheData,
+          PrefetchHooks Function()
+        > {
+  $$UserProfileCacheTableTableManager(
+    _$AppDatabase db,
+    $UserProfileCacheTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserProfileCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserProfileCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UserProfileCacheTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<bool> isGuest = const Value.absent(),
+                Value<String?> entitlementsCache = const Value.absent(),
+              }) => UserProfileCacheCompanion(
+                id: id,
+                displayName: displayName,
+                isGuest: isGuest,
+                entitlementsCache: entitlementsCache,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String displayName,
+                required bool isGuest,
+                Value<String?> entitlementsCache = const Value.absent(),
+              }) => UserProfileCacheCompanion.insert(
+                id: id,
+                displayName: displayName,
+                isGuest: isGuest,
+                entitlementsCache: entitlementsCache,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UserProfileCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UserProfileCacheTable,
+      UserProfileCacheData,
+      $$UserProfileCacheTableFilterComposer,
+      $$UserProfileCacheTableOrderingComposer,
+      $$UserProfileCacheTableAnnotationComposer,
+      $$UserProfileCacheTableCreateCompanionBuilder,
+      $$UserProfileCacheTableUpdateCompanionBuilder,
+      (
+        UserProfileCacheData,
+        BaseReferences<
+          _$AppDatabase,
+          $UserProfileCacheTable,
+          UserProfileCacheData
+        >,
+      ),
+      UserProfileCacheData,
       PrefetchHooks Function()
     >;
 
@@ -1657,4 +3385,8 @@ class $AppDatabaseManager {
       $$FavoritesTableTableManager(_db, _db.favorites);
   $$RecentEntriesTableTableManager get recentEntries =>
       $$RecentEntriesTableTableManager(_db, _db.recentEntries);
+  $$FoldersTableTableManager get folders =>
+      $$FoldersTableTableManager(_db, _db.folders);
+  $$UserProfileCacheTableTableManager get userProfileCache =>
+      $$UserProfileCacheTableTableManager(_db, _db.userProfileCache);
 }
