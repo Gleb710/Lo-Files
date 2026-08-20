@@ -40,7 +40,17 @@ dependencies:
   audioplayers: ^6.1.0
   photo_view: ^0.15.0
   freezed_annotation: ^3.1.0
-  flutter_riverpod: ^3.4.2
+  flutter_riverpod: 3.3.1
+  # ВАЖНО: вся тройка (flutter_riverpod, riverpod_annotation, riverpod_generator)
+  # закреплена намеренно ниже последних версий из-за конфликта с freezed ^3.2.5:
+  #   freezed ^3.2.5 требует analyzer <11.0.0;
+  #   riverpod_generator >=4.0.4-dev.1 требует analyzer ^12.0.0+ (несовместимо);
+  #   riverpod_annotation 4.0.2 — последняя версия под этот analyzer, но она
+  #   требует riverpod 3.2.1, что несовместимо с flutter_riverpod ^3.4.2;
+  #   поэтому flutter_riverpod тоже понижен до ^3.3.1 (тянет riverpod 3.2.1).
+  # НЕ поднимать ни один из трёх пакетов по отдельности — только синхронно
+  # всей группой, и только вместе с апгрейдом freezed на мажорную версию.
+  riverpod_annotation: 4.0.2
 
 dev_dependencies:
   flutter_test:
@@ -51,6 +61,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
   flutter_native_splash: ^2.4.3
+  # См. комментарий у riverpod_annotation в dependencies — та же причина.
+  riverpod_generator: 4.0.3
 
 flutter_launcher_icons:
   android: "launcher_icon"
